@@ -1,0 +1,57 @@
+{
+  "bank": { "name": "State Bank of India" },
+  "fraudChecks": {
+    "highAmountLimit": 50000.0,
+    "nightTimeStart": 0,
+    "nightTimeEnd": 4,
+    "rapidMaxAllowed": 3,
+    "rapidWithinSeconds": 60
+  },
+  "customers": [
+    { "id": "c1", "name": "Alice Sharma", "email": "alice@email.com", "city": "Mumbai" },
+    { "id": "c2", "name": "Bob Mehta", "email": "bob@email.com", "city": "Delhi" },
+    { "id": "c3", "name": "Charlie Roy", "email": "charlie@email.com", "city": "Bangalore" }
+  ],
+  "cards": [
+    { "cardNumber": "4111000000000001", "customerId": "c1", "creditLimit": 150000.0 },
+    { "cardNumber": "4111000000000002", "customerId": "c2", "creditLimit": 80000.0 },
+    { "cardNumber": "4111000000000003", "customerId": "c3", "creditLimit": 300000.0 }
+  ],
+  "scenarios": [
+    {
+      "label": "SCENARIO 1: Normal Spending",
+      "baseHour": 10, "baseMinute": 0, "baseSecond": 0,
+      "transactions": [
+        { "cardNumber": "4111000000000001", "amount": 450.0, "merchant": "Reliance Fresh", "location": "Mumbai", "isForeign": false },
+        { "cardNumber": "4111000000000001", "amount": 1200.0, "merchant": "Zomato", "location": "Mumbai", "offsetMinutes": 30, "isForeign": false },
+        { "cardNumber": "4111000000000001", "amount": 8500.0, "merchant": "Croma Electronics", "location": "Mumbai", "offsetMinutes": 120, "isForeign": false }
+      ]
+    },
+    {
+      "label": "SCENARIO 2: High-Value Foreign Transaction",
+      "baseHour": 11, "baseMinute": 0, "baseSecond": 0,
+      "transactions": [
+        { "cardNumber": "4111000000000002", "amount": 2000.0, "merchant": "D-Mart", "location": "Delhi", "isForeign": false },
+        { "cardNumber": "4111000000000002", "amount": 72000.0, "merchant": "Luxury Jewellers", "location": "Dubai, UAE", "offsetMinutes": 60, "isForeign": true }
+      ]
+    },
+    {
+      "label": "SCENARIO 3: Rapid-Fire Transactions (Charlie)",
+      "baseHour": 15, "baseMinute": 0, "baseSecond": 0,
+      "transactions": [
+        { "cardNumber": "4111000000000003", "amount": 800.0, "merchant": "Amazon", "location": "Bangalore", "isForeign": false },
+        { "cardNumber": "4111000000000003", "amount": 950.0, "merchant": "Flipkart", "location": "Bangalore", "offsetSeconds": 8, "isForeign": false },
+        { "cardNumber": "4111000000000003", "amount": 1100.0, "merchant": "Myntra", "location": "Bangalore", "offsetSeconds": 16, "isForeign": false },
+        { "cardNumber": "4111000000000003", "amount": 750.0, "merchant": "Swiggy", "location": "Bangalore", "offsetSeconds": 24, "isForeign": false }
+      ]
+    },
+    {
+      "label": "SCENARIO 4: Late-Night Transactions (Alice)",
+      "baseHour": 2, "baseMinute": 15, "baseSecond": 0,
+      "transactions": [
+        { "cardNumber": "4111000000000001", "amount": 12000.0, "merchant": "Casino Royale", "location": "Goa", "isForeign": false },
+        { "cardNumber": "4111000000000001", "amount": 4000.0, "merchant": "ATM Withdrawal", "location": "Goa", "offsetMinutes": 5, "isForeign": false }
+      ]
+    }
+  ]
+}
