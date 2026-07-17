@@ -99,6 +99,13 @@ public class TransactionServer {
     // ---- POST /api/transaction — run a manually entered transaction through fraud checks ----
     static class TransactionHandler implements HttpHandler {
         public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+                exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendJson(exchange, 405, "{\"error\":\"Use POST\"}");
                 return;
@@ -169,6 +176,9 @@ public class TransactionServer {
     private static void sendJson(HttpExchange exchange, int status, String json) throws IOException {
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.getResponseBody().close();
