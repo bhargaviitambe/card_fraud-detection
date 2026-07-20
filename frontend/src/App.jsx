@@ -1,160 +1,104 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import TransactionModal from './components/TransactionModal'
+import ResultBanner from './components/ResultBanner'
+import TransactionList from './components/TransactionList'
 import './App.css'
 
 export default function App() {
   const [cards, setCards] = useState([])
-  const [form, setForm] = useState({
-    cardNumber: '',
-    amount: '',
-    merchant: '',
-    location: '',
-    isForeign: false,
-  })
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [selectedCard, setSelectedCard] = useState('')
+  const [transactions, setTransactions] = useState([])
+  const [loadingTxns, setLoadingTxns] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [lastResult, setLastResult] = useState(null)
+  const [connectionError, setConnectionError] = useState(null)
 
-  useEffect(() => {
-    fetch('/api/cards')
+  const loadCards = useCallback(() => {
+    return fetch('/api/cards')
       .then((res) => res.json())
       .then((data) => {
         setCards(data)
-        if (data.length > 0) {
-          setForm((f) => ({ ...f, cardNumber: data[0].cardNumber }))
-        }
+        setConnectionError(null)
+        setSelectedCard((current) => current || data[0]?.cardNumber || '')
+        return data
       })
-      .catch(() => setError('Could not reach the fraud detection server.'))
+      .catch(() => {
+        setConnectionError('Could not reach the fraud detection server. Is it running on port 8080?')
+      })
   }, [])
 
-  function updateField(field, value) {
-    setForm((f) => ({ ...f, [field]: value }))
+  const loadTransactions = useCallback((cardNumber) => {
+    if (!cardNumber) return
+    setLoadingTxns(true)
+    fetch(`/api/transactions?cardNumber=${encodeURIComponent(cardNumber)}`)
+      .then((res) => res.json())
+      .then((data) => setTransactions(Array.isArray(data) ? data : []))
+      .catch(() => setTransactions([]))
+      .finally(() => setLoadingTxns(false))
+  }, [])
+
+  useEffect(() => {
+    loadCards()
+  }, [loadCards])
+
+  useEffect(() => {
+    if (selectedCard) loadTransactions(selectedCard)
+  }, [selectedCard, loadTransactions])
+
+  function handleSubmitted(result) {
+    setModalOpen(false)
+    setLastResult(result)
+    loadCards()
+    loadTransactions(selectedCard)
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setResult(null)
-
-    try {
-      const res = await fetch('/api/transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          amount: parseFloat(form.amount),
-        }),
-      })
-      const data = await res.json()
-      if (data.error) {
-        setError(data.error)
-      } else {
-        setResult(data)
-        fetch('/api/cards').then((r) => r.json()).then(setCards)
-      }
-    } catch {
-      setError('Request failed. Is the backend server running on port 8080?')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const currentCard = cards.find((c) => c.cardNumber === selectedCard)
 
   return (
-    <div className="container">
-      <h1>Credit Card Fraud Detection</h1>
-      <p className="subtitle">
-        Enter a transaction manually and see how the fraud engine scores it.
-      </p>
+    <div className="page">
+      <div className="dashboard">
+        <header className="dashboard-header">
+          <div>
+            <h1>Your Transactions</h1>
+            {currentCard && (
+              <p className="subtitle">
+                {currentCard.masked} — {currentCard.owner} ({currentCard.city})
+                {currentCard.blocked && <span className="blocked-tag"> BLOCKED</span>}
+              </p>
+            )}
+          </div>
+          <button className="add-btn" onClick={() => setModalOpen(true)}>
+            + New Transaction
+          </button>
+        </header>
 
-      <form onSubmit={handleSubmit}>
-        <label>
-          Card
-          <select
-            value={form.cardNumber}
-            onChange={(e) => updateField('cardNumber', e.target.value)}
-            required
-          >
+        {connectionError && <div className="banner blocked"><div className="banner-content"><p>{connectionError}</p></div></div>}
+
+        {cards.length > 1 && (
+          <div className="card-switcher">
             {cards.map((c) => (
-              <option key={c.cardNumber} value={c.cardNumber}>
-                {c.masked} — {c.owner} ({c.city})
-                {c.blocked ? ' [BLOCKED]' : ''}
-              </option>
+              <button
+                key={c.cardNumber}
+                className={`card-chip ${c.cardNumber === selectedCard ? 'active' : ''}`}
+                onClick={() => setSelectedCard(c.cardNumber)}
+              >
+                {c.masked} — {c.owner}
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        )}
 
-        <label>
-          Amount (Rs.)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="e.g. 5000"
-            value={form.amount}
-            onChange={(e) => updateField('amount', e.target.value)}
-            required
-          />
-        </label>
+        <ResultBanner result={lastResult} onDismiss={() => setLastResult(null)} />
 
-        <label>
-          Merchant
-          <input
-            type="text"
-            placeholder="e.g. Amazon"
-            value={form.merchant}
-            onChange={(e) => updateField('merchant', e.target.value)}
-            required
-          />
-        </label>
+        <TransactionList transactions={transactions} loading={loadingTxns} />
+      </div>
 
-        <label>
-          Location
-          <input
-            type="text"
-            placeholder="e.g. Mumbai"
-            value={form.location}
-            onChange={(e) => updateField('location', e.target.value)}
-            required
-          />
-        </label>
-
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={form.isForeign}
-            onChange={(e) => updateField('isForeign', e.target.checked)}
-          />
-          Foreign transaction
-        </label>
-
-        <button type="submit" disabled={loading}>
-          {loading ? 'Checking...' : 'Submit Transaction'}
-        </button>
-      </form>
-
-      {error && (
-        <div className="result blocked">
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {result && (
-        <div className={`result ${result.status.toLowerCase()}`}>
-          <h3>
-            {result.status} — {result.transactionId}
-          </h3>
-          <p>
-            <strong>Card:</strong> {result.maskedCard} ({result.cardHolder})
-          </p>
-          {result.cardBlocked && (
-            <p className="warning">⚠ This card has been blocked.</p>
-          )}
-          {result.reason ? (
-            <p className="warning">⚠ {result.reason}</p>
-          ) : (
-            <p>No fraud indicators detected.</p>
-          )}
-        </div>
+      {modalOpen && (
+        <TransactionModal
+          cards={cards}
+          onClose={() => setModalOpen(false)}
+          onSubmitted={handleSubmitted}
+        />
       )}
     </div>
   )
