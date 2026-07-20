@@ -9,6 +9,10 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import java.net.URLDecoder;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +35,7 @@ public class TransactionServer {
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
         server.createContext("/api/cards", new CardsHandler());
+        server.createContext("/api/transactions", new TransactionsHandler());
         server.createContext("/api/transaction", new TransactionHandler());
         server.createContext("/", new StaticFileHandler());
 
@@ -95,7 +100,58 @@ public class TransactionServer {
             sendJson(exchange, 200, json.toString());
         }
     }
+// ---- GET /api/transactions?cardNumber=... — full transaction history for one card ----
+    static class TransactionsHandler implements HttpHandler {
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+                exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
+                exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
 
+            String cardNumber = null;
+            String query = exchange.getRequestURI().getQuery();
+            if (query != null) {
+                for (String param : query.split("&")) {
+                    String[] kv = param.split("=", 2);
+                    if (kv.length == 2 && kv[0].equals("cardNumber")) {
+                        cardNumber = URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                    }
+                }
+            }
+
+            CreditCard card = cardMap.get(cardNumber);
+            if (card == null) {
+                sendJson(exchange, 400, "{\"error\":\"Unknown card number\"}");
+                return;
+            }
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+            List<Transaction> history = card.getTransactionHistory();
+
+            StringBuilder json = new StringBuilder("[");
+            boolean first = true;
+            for (int i = history.size() - 1; i >= 0; i--) { // most recent first
+                Transaction t = history.get(i);
+                if (!first) json.append(",");
+                first = false;
+                json.append("{")
+                    .append("\"transactionId\":\"").append(t.getTransactionId()).append("\",")
+                    .append("\"amount\":").append(t.getAmount()).append(",")
+                    .append("\"merchant\":\"").append(esc(t.getMerchant())).append("\",")
+                    .append("\"location\":\"").append(esc(t.getLocation())).append("\",")
+                    .append("\"time\":\"").append(t.getTime().format(fmt)).append("\",")
+                    .append("\"isForeign\":").append(t.isForeign()).append(",")
+                    .append("\"status\":\"").append(t.getStatus()).append("\",")
+                    .append("\"reason\":\"").append(esc(t.getFraudReason())).append("\"")
+                    .append("}");
+            }
+            json.append("]");
+            sendJson(exchange, 200, json.toString());
+        }
+    }
     // ---- POST /api/transaction — run a manually entered transaction through fraud checks ----
     static class TransactionHandler implements HttpHandler {
         public void handle(HttpExchange exchange) throws IOException {
