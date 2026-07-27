@@ -83,6 +83,15 @@ public class TransactionServer {
     // ---- GET /api/cards — list registered cards, used to populate the dropdown ----
     static class CardsHandler implements HttpHandler {
         public void handle(HttpExchange exchange) throws IOException {
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendCorsPreflight(exchange, "GET, POST");
+                return;
+            }
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                addCardToExistingCustomer(exchange);
+                return;
+            }
+
             StringBuilder json = new StringBuilder("[");
             boolean first = true;
             for (CreditCard card : cardMap.values()) {
@@ -92,14 +101,47 @@ public class TransactionServer {
                     .append("\"cardNumber\":\"").append(card.getCardNumber()).append("\",")
                     .append("\"masked\":\"").append(card.getMaskedNumber()).append("\",")
                     .append("\"owner\":\"").append(esc(card.getOwner().getName())).append("\",")
+                    .append("\"customerId\":\"").append(esc(card.getOwner().getId())).append("\",")
                     .append("\"city\":\"").append(esc(card.getOwner().getCity())).append("\",")
+                    .append("\"balance\":").append(card.getBalance()).append(",")
                     .append("\"blocked\":").append(card.isBlocked())
                     .append("}");
             }
             json.append("]");
             sendJson(exchange, 200, json.toString());
         }
+
+    // POST /api/cards — { "customerId": "c1", "cardNumber": "...", "creditLimit": 50000 }
+    // Adds a new card to an EXISTING customer (unlike /api/customers, which creates a new person).
+    private void addCardToExistingCustomer(HttpExchange exchange) throws IOException {
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        try {
+            JsonObject req = (JsonObject) JsonParser.parse(body);
+
+            Customer customer = customerMap.get(req.getString("customerId"));
+            if (customer == null) {
+                sendJson(exchange, 400, "{\"error\":\"Unknown customer\"}");
+                return;
+            }
+
+            String cardNumber = req.getString("cardNumber");
+            if (cardMap.containsKey(cardNumber)) {
+                sendJson(exchange, 400, "{\"error\":\"That card number is already registered\"}");
+                return;
+            }
+
+            CreditCard card = new CreditCard(cardNumber, customer, req.getDouble("creditLimit"));
+            cardMap.put(cardNumber, card);
+            bank.registerCard(card);
+            persistStore();
+
+            sendJson(exchange, 200, "{\"cardNumber\":\"" + card.getCardNumber() + "\",\"masked\":\""
+                + card.getMaskedNumber() + "\",\"owner\":\"" + esc(customer.getName()) + "\"}");
+        } catch (Exception e) {
+            sendJson(exchange, 400, "{\"error\":\"" + esc(String.valueOf(e.getMessage())) + "\"}");
+        }
     }
+}
 // ---- GET /api/transactions?cardNumber=... — full transaction history for one card ----
     static class TransactionsHandler implements HttpHandler {
         public void handle(HttpExchange exchange) throws IOException {
