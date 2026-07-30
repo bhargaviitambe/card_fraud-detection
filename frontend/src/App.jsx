@@ -3,6 +3,7 @@ import TransactionModal from './components/TransactionModal'
 import ResultBanner from './components/ResultBanner'
 import TransactionList from './components/TransactionList'
 import './App.css'
+import AddCardModal from './components/AddCardModal'
 
 export default function App() {
   const [cards, setCards] = useState([])
@@ -12,6 +13,7 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false)
   const [lastResult, setLastResult] = useState(null)
   const [connectionError, setConnectionError] = useState(null)
+  const [addCardModalOpen, setAddCardModalOpen] = useState(false)
 
   const loadCards = useCallback(() => {
     return fetch('/api/cards')
