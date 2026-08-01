@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import TransactionModal from './components/TransactionModal'
+import CustomerModal from './components/CustomerModal'
+import AddCardModal from './components/AddCardModal'
 import ResultBanner from './components/ResultBanner'
 import TransactionList from './components/TransactionList'
 import './App.css'
-import AddCardModal from './components/AddCardModal'
 
 export default function App() {
   const [cards, setCards] = useState([])
@@ -11,9 +12,10 @@ export default function App() {
   const [transactions, setTransactions] = useState([])
   const [loadingTxns, setLoadingTxns] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
+  const [addCardModalOpen, setAddCardModalOpen] = useState(false)
   const [lastResult, setLastResult] = useState(null)
   const [connectionError, setConnectionError] = useState(null)
-  const [addCardModalOpen, setAddCardModalOpen] = useState(false)
 
   const loadCards = useCallback(() => {
     return fetch('/api/cards')
@@ -54,6 +56,16 @@ export default function App() {
     loadTransactions(selectedCard)
   }
 
+  function handleCustomerCreated(newCard) {
+    setCustomerModalOpen(false)
+    loadCards().then(() => setSelectedCard(newCard.cardNumber))
+  }
+
+  function handleCardAdded(newCard) {
+    setAddCardModalOpen(false)
+    loadCards().then(() => setSelectedCard(newCard.cardNumber))
+  }
+
   const currentCard = cards.find((c) => c.cardNumber === selectedCard)
 
   return (
@@ -69,12 +81,25 @@ export default function App() {
               </p>
             )}
           </div>
-          <button className="add-btn" onClick={() => setModalOpen(true)}>
-            + New Transaction
-          </button>
+
+          <div className="header-actions">
+            <button className="add-btn secondary" onClick={() => setCustomerModalOpen(true)}>
+              + New Customer
+            </button>
+            <button className="add-btn secondary" onClick={() => setAddCardModalOpen(true)}>
+              + Add Card
+            </button>
+            <button className="add-btn" onClick={() => setModalOpen(true)}>
+              + New Transaction
+            </button>
+          </div>
         </header>
 
-        {connectionError && <div className="banner blocked"><div className="banner-content"><p>{connectionError}</p></div></div>}
+        {connectionError && (
+          <div className="banner blocked">
+            <div className="banner-content"><p>{connectionError}</p></div>
+          </div>
+        )}
 
         {cards.length > 1 && (
           <div className="card-switcher">
@@ -100,6 +125,20 @@ export default function App() {
           cards={cards}
           onClose={() => setModalOpen(false)}
           onSubmitted={handleSubmitted}
+        />
+      )}
+
+      {customerModalOpen && (
+        <CustomerModal
+          onClose={() => setCustomerModalOpen(false)}
+          onCreated={handleCustomerCreated}
+        />
+      )}
+
+      {addCardModalOpen && (
+        <AddCardModal
+          onClose={() => setAddCardModalOpen(false)}
+          onCreated={handleCardAdded}
         />
       )}
     </div>
