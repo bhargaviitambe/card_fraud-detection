@@ -230,6 +230,13 @@ class Bank {
         System.out.println(transaction);
     }
 
+    // Used only when restoring saved transactions on server startup —
+    // adds a transaction to the bank's records without re-running fraud checks
+    public void restoreTransaction(CreditCard card, Transaction transaction) {
+        card.addTransaction(transaction);
+        allTransactions.add(transaction);
+    }
+
     public String getBankName()                        { return bankName; }
     public ArrayList<CreditCard> getCards()            { return cards; }
     public ArrayList<Transaction> getAllTransactions() { return allTransactions; }
