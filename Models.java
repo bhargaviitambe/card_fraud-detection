@@ -12,20 +12,23 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 // ------------------------------------------------------------
-// Represents a bank customer who owns a credit card
+// Represents a bank customer who owns one or more credit cards
 // ------------------------------------------------------------
 class Customer {
 
+    private String id;
     private String name;
     private String email;
     private String city;   // Home city — used to detect unusual locations
 
-    public Customer(String name, String email, String city) {
+    public Customer(String id, String name, String email, String city) {
+        this.id    = id;
         this.name  = name;
         this.email = email;
         this.city  = city;
     }
 
+    public String getId()    { return id; }
     public String getName()  { return name; }
     public String getEmail() { return email; }
     public String getCity()  { return city; }
@@ -37,7 +40,8 @@ class Customer {
 }
 
 // ------------------------------------------------------------
-// Represents a credit card belonging to a Customer
+// Represents a credit card belonging to a Customer.
+// A Customer can own multiple CreditCard objects.
 // ------------------------------------------------------------
 class CreditCard {
 
@@ -67,6 +71,10 @@ class CreditCard {
 
     public void block() { this.isBlocked = true; }
 
+    // Used only when restoring saved state on server startup
+    public void setBalance(double balance) { this.balance = balance; }
+    public void setBlocked(boolean blocked) { this.isBlocked = blocked; }
+
     public void addTransaction(Transaction t) { transactionHistory.add(t); }
 
     public ArrayList<Transaction> getTransactionHistory() { return transactionHistory; }
@@ -78,6 +86,7 @@ class CreditCard {
 
     public String getCardNumber()  { return cardNumber; }
     public Customer getOwner()     { return owner; }
+    public double getCreditLimit() { return creditLimit; }
     public double getBalance()     { return balance; }
     public boolean isBlocked()     { return isBlocked; }
 
@@ -117,6 +126,25 @@ class Transaction {
         this.status    = "PENDING";
         this.fraudReason = "";
     }
+
+    // Used only when restoring saved transactions on server startup —
+    // keeps the original ID and status instead of generating new ones.
+    public Transaction(String transactionId, CreditCard card, double amount, String merchant,
+                       String location, LocalDateTime time, boolean isForeign,
+                       String status, String fraudReason) {
+        this.transactionId = transactionId;
+        this.card      = card;
+        this.amount    = amount;
+        this.merchant  = merchant;
+        this.location  = location;
+        this.time      = time;
+        this.isForeign = isForeign;
+        this.status    = status;
+        this.fraudReason = fraudReason;
+    }
+
+    // Called after restoring saved transactions so new ones don't collide with old IDs
+    public static void setNextCounter(int n) { counter = n; }
 
     public String getTransactionId() { return transactionId; }
     public CreditCard getCard()      { return card; }
